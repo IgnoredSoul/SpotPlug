@@ -1,7 +1,7 @@
 [
     {
       "name": "SpotPlug",
-      "description": "An extension that allows socket connects",
+      "description": "An extension that allows socket connections",
       "preview": "marketplace/preview.gif",
       "main": "marketplace/spotplug.js",
       "readme": "README.md"
