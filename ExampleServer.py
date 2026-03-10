@@ -1,4 +1,4 @@
-import socketio, uvicorn
+import socketio, uvicorn, time
 
 # Create an ASYNC Socket.io server
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
@@ -20,7 +20,6 @@ async def connect(sid, data):
     sid_lock = sid
 
     print(f"✅ Spicetify Client Connected: {sid}")
-    await sio.emit('welcome', {'data': 'Connected to Python Server'}, room=sid)
 
 @sio.on('disconnect')
 async def disconnect(sid):
@@ -42,13 +41,20 @@ async def handle_progress(sid, data):
 
 # Examples of sending the client commands
 async def next():
+    print('sending Next')
     await sio.emit('command', {'action': 'next'}, room=sid_lock)
 
 async def prev():
+    print('sending Prev')
     await sio.emit('command', {'action': 'prev'}, room=sid_lock)
 
 async def pause():
+    print('sending Pause')
     await sio.emit('command', {'action': 'pause'}, room=sid_lock)
+
+async def play():
+    print('sending Play')
+    await sio.emit('command', {'action': 'play'}, room=sid_lock)
 
 if __name__ == '__main__':
     print("Socket server starting on http://localhost:8000")

@@ -97,11 +97,15 @@ async function main() {
 
     // Custom commands 'cause why not
     socket?.on('command', (data: { action: string }) => {
+
+        console.log(`doing switch ${data.action}`)
         switch(data.action) {
-            case 'next': Spicetify.Player.next();
-            case 'prev': Spicetify.Player.back();
-            case 'pause': Spicetify.Player.pause();
+            case 'next': Spicetify.Player.next(); break;
+            case 'prev': Spicetify.Player.back(); break;
+            case 'pause': Spicetify.Player.pause(); break;
+            case 'play': Spicetify.Player.play(); break;
         }
+        console.log('end')
     });
 }
 
