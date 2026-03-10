@@ -1,6 +1,6 @@
 # SpotPlug
 
-SpotPlug is a Spicetify extension that establishes a local socket connection between Spotify and a custom server. It allows for seamless external control and real-time monitoring of your playback.
+potPlug is an extension for Spicetify that creates a socket connection between Spotify and a server. It enables the control and monitoring of your Spotify playback externally.
 
 ## Features
 
