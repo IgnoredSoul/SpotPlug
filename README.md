@@ -22,11 +22,13 @@ SpotPlug is an extension for Spicetify that creates a socket connection between 
 
 ### Server to Client (Inbound)
 
-- `pause`: Toggles or pauses playback.
+- `pause`: Pauses playback.
+
+- `play`: Resumes playback.
 
 - `next`: Skips to the next track.
 
-- `prev`: Goes back to the previous track.
+- `prev`: Goes back to the previous track/start of song.
 
 ## Configuration
 
