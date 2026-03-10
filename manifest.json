@@ -4,6 +4,17 @@
       "description": "An extension that allows socket connections",
       "preview": "marketplace/preview.png",
       "main": "marketplace/spotplug.js",
-      "readme": "README.md"
+      "readme": "README.md",
+      "authors": [
+        {
+          "name": "IGNOREDSOUL",
+          "url": "https://github.com/IGNOREDSOUL"
+        }
+      ],
+      "tags": [
+        "dev",
+        "utility",
+        "utilities"
+      ]
     }
 ]
