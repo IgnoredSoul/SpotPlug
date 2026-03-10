@@ -44,7 +44,7 @@ settings.addInput('socket_port', 'Socket Port', '8000', () => refreshSocket())
 settings.addToggle('autoconnect_socket', 'Enable the socket client', true, () => refreshSocket())
 
 // How often does the songs' progress get sent
-settings.addInput('progress_throttle', 'How frequent the progress data is send (ms)', '900', () => progress_throttle = Number(settings.getFieldValue('progress_throttle')));
+settings.addInput('progress_throttle', 'How frequent the progress data is sent (ms)', '900', () => progress_throttle = Number(settings.getFieldValue('progress_throttle')));
 
 // Push settings
 settings.pushSettings();
