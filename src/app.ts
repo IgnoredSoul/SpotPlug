@@ -29,7 +29,8 @@ function refreshSocket() {
         socket = io(`http://localhost:${port}`, { autoConnect: true, reconnection: true });
         socket.on("connect", () => { on_songchange(Spicetify.Player.data); Spicetify.showNotification("Connected to the socket server") });
         socket.on("disconnect", () => Spicetify.showNotification('Disconnected from the socket server'));
-        socket.on("connect_error", (err) => {console.error("Socket Error:", err); Spicetify.showNotification('SpotPlug encountered an error. Did you turn off auto connect?')});
+        // If they leave it on, their fault lmao
+        // socket.on("connect_error", (err) => {console.error("Socket Error:", err); Spicetify.showNotification('SpotPlug encountered an error. Did you turn off auto connect?')});
     } else {
         socket = null;
     }
