@@ -45,7 +45,7 @@ my 'now playing' overlay doesn't work anymore due to not being able to use their
 
 > How do I use this?
 
-You can use example [python socket server](/spotplug/ExampleServer.py) and expand from there.
+You can use example [python socket server](/ExampleServer.py) and expand from there.
 
 <hr/>
 
