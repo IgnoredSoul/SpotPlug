@@ -33,7 +33,9 @@ SpotPlug is an extension for Spicetify that creates a socket connection between 
 You can find the settings directly within Spotify's Preferences menu:
 
 - `Enable Client`: The the socket connection on or off.
+
 - `Port`: Set the specific local port for the socket server.
+
 - `Progress Interval`: Adjust how frequently the progress event is sent.
 
 ## FAQ
