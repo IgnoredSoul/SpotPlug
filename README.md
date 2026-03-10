@@ -45,7 +45,7 @@ my 'now playing' overlay doesn't work anymore due to not being able to use their
 
 > How do I use this?
 
-Just set up a local server. Python's Flask or FastAPI with uvicorn are the easiest ways to host your endpoints.
+You can use example [python socket server](/spotplug/ExampleServer.py) and expand from there.
 
 <hr/>
 
