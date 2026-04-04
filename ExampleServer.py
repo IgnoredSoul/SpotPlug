@@ -6,26 +6,33 @@ sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 # Wrap it in an ASGI application
 app = socketio.ASGIApp(sio)
 
-# Realistically, there is only one client connecting to the server
-sid_lock = None
+# Keep track of the spotify sid
+spotify_sid = None
 
 @sio.on('connect')
 async def connect(sid, data):
-    global sid_lock
-
-    # Drop any new connections
-    if sid_lock is not None:
-        await sio.disconnect(sid)
-
-    sid_lock = sid
-
-    print(f"✅ Spicetify Client Connected: {sid}")
+    print(f"A new client has connected: {sid}")
 
 @sio.on('disconnect')
 async def disconnect(sid):
-    global sid_lock
+    global spotify_sid
 
-    sid_lock = None
+    if(sid == spotify_sid):
+        spotify_sid = None
+        print("The spotify client has disconnected.")
+    else:
+        print(f"A client has disconnected: {sid}")
+
+@sio.on('p2s_connect')
+async def p2s_connect(sid, data):
+    global spotify_sid
+
+    # There should NOT be more than one spotify client connecting
+    if(spotify_sid != None): return
+
+    spotify_sid = sid
+    print(f"Spotify has connected!")
+    print(f"Data sent from connection:\n{data}")
 
 @sio.on('songchange')
 async def handle_song_change(sid, data):
@@ -39,18 +46,25 @@ async def handle_play_pause(sid, data):
 async def handle_progress(sid, data):
     print(f"[Progress]:", data)
 
-# Examples of sending the client commands
+# Play next song
 async def next():
-    await sio.emit('command', {'action': 'next'}, room=sid_lock)
+    await sio.emit('playback', {'type': 'next'}, room=sid_lock)
 
+# Play previous / Start of track
 async def prev():
-    await sio.emit('command', {'action': 'prev'}, room=sid_lock)
+    await sio.emit('playback', {'type': 'prev'}, room=sid_lock)
 
-async def pause():
-    await sio.emit('command', {'action': 'pause'}, room=sid_lock)
+# Play/Pause
+async def toggle():
+    await sio.emit('playback', {'type': 'toggle'}, room=sid_lock)
 
+# Play a spotify URI
 async def play():
-    await sio.emit('command', {'action': 'play'}, room=sid_lock)
+    await sio.emit('playback', {'type': 'play', 'uri': 'spotify:track:709ZIqPHyFOpx2QdjmeWAM' })
+
+# Seek current track to 5 seconds in
+async def seek():
+    await sio.emit('playback', {'type': 'seek', 'milli': '5000'})
 
 if __name__ == '__main__':
     print("Socket server starting on http://localhost:8000")

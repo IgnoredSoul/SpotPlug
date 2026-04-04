@@ -1,129 +1,191 @@
 import { io, Socket } from "socket.io-client";
 import { SettingsSection } from "spcr-settings";
 
-// Config located in spotifys' preferences
 const settings: SettingsSection = new SettingsSection('SpotPlug Settings', 'spotplug-settings')
-
-// Define progress throttle
-let progress_throttle: number = Number(settings.getFieldValue('progress_throttle'));
-
-// Define the last time we sent the progress
-let lastProgressUpdate: number = 0;
+const get_progress_throttle = () => Number(settings.getFieldValue('progress_throttle'));
+settings.addInput('socket_port', 'Socket Port', '8000', refresh_socket)
+settings.addInput('progress_throttle', 'How frequent the progress data is sent (ms)', '800');
+settings.addToggle('autoconnect_socket', 'Enable the socket client', true, refresh_socket)
+settings.pushSettings();
 
 // Define socket
 let socket: Socket | null = null;
 
-// Refresh socket
-function refreshSocket() {
+// Refresh the socket state, either turning it on or off
+async function refresh_socket() {
     const isEnabled = Boolean(settings.getFieldValue('autoconnect_socket'));
     const port = Number(settings.getFieldValue('socket_port')) || 8000;
 
     // Disconnect existing if it exists
     if (socket) {
-        socket.disconnect();
         socket.removeAllListeners();
+        socket.disconnect();
     }
 
-    // If we should connect
+    // If the socket is now enabled, connect
     if (isEnabled) {
         socket = io(`http://localhost:${port}`, { autoConnect: true, reconnection: true });
-        socket?.on("connected", () => { on_connected(Spicetify.Player.data); Spicetify.showNotification("Connected to the socket server") });
-        socket?.on("disconnect", () => Spicetify.showNotification('Disconnected from the socket server'));
-        // If they leave it on, their fault lmao
-        // socket.on("connect_error", (err) => {console.error("Socket Error:", err); Spicetify.showNotification('SpotPlug encountered an error. Did you turn off auto connect?')});
-    } else {
+        socket.on('connect', connect);
+        socket.on('disconnect', disconnect);
+    } else { // Else set it to null
         socket = null;
     }
 }
 
-// Socket port entry
-settings.addInput('socket_port', 'Socket Port', '8000', () => refreshSocket())
+async function connect() {
+    
+    // Show notification on spotify client
+    Spicetify.showNotification('Connected to server');
+    
+    // Send "I'm spotify" data to the server
+    socket!.emit('p2s_connect', {IamHere:true})
+    
+}
 
-// A toggle to see if we should auto connect to a socket or not
-// Changed the description to just make it toggle the socket instead of 'auto connect' smh
-settings.addToggle('autoconnect_socket', 'Enable the socket client', true, () => refreshSocket())
+async function disconnect() {
+    
+    // Show notification on spotify client
+    Spicetify.showNotification('Disconnected from server');
+    
+}
 
-// How often does the songs' progress get sent
-settings.addInput('progress_throttle', 'How frequent the progress data is sent (ms)', '900', () => progress_throttle = Number(settings.getFieldValue('progress_throttle')));
+//#region Events that are automatically sent to the server
 
-// Push settings
-settings.pushSettings();
-
-async function on_connected(data: any) {
-    if (!data?.item || !socket?.connected) return;
-    const track = data.item;
-    const metadata = track.metadata;
-    const albumArt = metadata.image_xlarge_url || metadata.image_url || "";
-    const artId = albumArt.includes(':') ? albumArt.split(':')[2] : albumArt;
-    const payload = {
+// Send the current song
+async function event_songchange(event: any) {
+    
+    // A few checks
+    if(!socket?.connected || !event?.data?.item) return;
+    
+    // Some constants
+    const track = event.data.item;
+    const artId = (track.metadata.image_xlarge_url || track.metadata.image_url || "").split(':')[2] ?? "";
+    
+    // Emit data to the server
+    socket?.emit('p2s_songchange', {
         title: track.name,
         artists: Array.from(track.artists.map((a: any) => a.name)),
-        album: metadata.album_title,
-        artUrl: artId ? `https://i.scdn.co/image/${artId}` : "",
-        durationMs: track.duration.milliseconds,
-        isPaused: data.isPaused
-    };
-    socket?.emit('connected', payload)
+        album: track.metadata.album_title,
+        art: `https://i.scdn.co/image/${artId}`,
+        duration: track.duration.milliseconds,
+        isPaused: event.data.isPaused
+    });
+
 }
 
-async function on_songchange(data: any) {
-    if (!data?.item || !socket?.connected) return;
-    const track = data.item;
-    const metadata = track.metadata;
-    const albumArt = metadata.image_xlarge_url || metadata.image_url || "";
-    const artId = albumArt.includes(':') ? albumArt.split(':')[2] : albumArt;
-    const payload = {
-        title: track.name,
-        artists: Array.from(track.artists.map((a: any) => a.name)),
-        album: metadata.album_title,
-        artUrl: artId ? `https://i.scdn.co/image/${artId}` : "",
-        durationMs: track.duration.milliseconds,
-        isPaused: data.isPaused
-    };
-    socket?.emit('songchange', payload)
+// Send the current pause state of the player
+async function event_playpause(event: any) {
+
+    // A few checks
+    if(!socket?.connected || !event?.data) return;
+
+    // Emit data to the server
+    socket?.emit('p2s_playpause', { isPaused: event.data.isPaused });
+
 }
 
-async function on_playpause(data: any) {
-    if (!data || !socket?.connected) {
-        console.log("socket aint connected?", socket?.connected ? 'yes':'no', ' data?', data ? 'yes':'no');
-        return;
-    }
-    socket?.emit('playpause', { isPaused: data.isPaused })
-}
+// Send the progress of the current track
+let lastProgressThrottle = 0;
+async function event_progress(event: any) {
 
-async function on_progress(data: any) {
-    if (!data || !socket?.connected) return;
+    // A few checks
+    if(!socket?.connected || !event?.data) return;
+
+    // Progress throttle | So it doesn't constantly send progress for every little fucking number
     const now = Date.now();
-    if (now - lastProgressUpdate < progress_throttle) return;
-    lastProgressUpdate = now;
-    socket?.emit('progress', { progress_ms: Spicetify.Player.getProgress(), progress_p: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2))})
+    if(now - lastProgressThrottle < get_progress_throttle()) return;
+    lastProgressThrottle = now;
+
+    socket?.emit('p2s_progress', {
+        milliseconds: Spicetify.Player.getProgress(),
+        percentage: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2)) // Cuts the percentage down to XXX.YY%
+    });
+
 }
 
-// When the extension loads
+//#endregion
+
+//#region Methods that the server calls
+
+async function playback(control: { type: string, uri: string|null, milli:number|null }) {
+    switch(control.type) {
+        case 'next': Spicetify.Player.next(); break;
+        case 'prev': Spicetify.Player.back(); break;
+        case 'play': if(control.uri) Spicetify.Player.playUri(control.uri); break;
+        case 'toggle': Spicetify.Player.togglePlay();
+        case 'seek':if(control.milli) Spicetify.Player.seek(control.milli); break;
+    }
+}
+
+//#endregion
+
+//#region Methods that the server calls, waiting for a callback
+
+// Retrieve the current track
+async function current_track() {
+
+    const track = Spicetify.Player.data.item;
+    const artId = (track.metadata.image_xlarge_url || track.metadata.image_url || "").split(':')[2] ?? "";
+
+    return {
+        title: track.name,
+        artists: Array.from(track.artists!.map((a: any) => a.name)),
+        album: track.metadata.album_title,
+        art: `https://i.scdn.co/image/${artId}`,
+        duration: track.duration.milliseconds,
+        isPaused: Spicetify.Player.data.isPaused
+    }
+}
+
+// Retrieve the artists profile
+async function current_artist() {
+    try {
+        const response = await Spicetify.GraphQL.Request(Spicetify.GraphQL.Definitions.queryArtistOverview, { uri: Spicetify.Player.data.item.metadata.artist_uri, locale: "en", includePrerelease: false });
+        const Union = response?.data?.artistUnion;
+        if(!Union) throw Error("No Union?");
+        return Union;
+    } catch (err) {
+        console.error("Failed to get current artists profile:", err);
+    }
+}
+
+// Retrieve the next track
+async function next_track() {
+    if(Spicetify.Player.data.nextItems) {
+        return Spicetify.Player.data.nextItems[0] ?? null;
+    }
+    return null;
+}
+
+// Retrieve (N) next tracks
+async function next_tracks(n: number) {
+    if(Spicetify.Player.data.nextItems) {
+        return Spicetify.Player.data.nextItems.slice(0, n) ?? null;
+    }
+    return null;
+}
+
+//#endregion
+
 async function main() {
 
     // Does thou have a player?
-    while (!Spicetify?.Player) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    while (!Spicetify?.Player) await new Promise(resolve => setTimeout(resolve, 100)); 
 
-    // Refresh
-    refreshSocket();
-
-    // Add listeners
-    Spicetify.Player.addEventListener("songchange", (event) => on_songchange(event?.data));
-    Spicetify.Player.addEventListener("onplaypause", (event) => on_playpause(event?.data));
-    Spicetify.Player.addEventListener("onprogress", (event) => on_progress(event?.data));
+    // Listeners
+    Spicetify.Player.addEventListener('songchange', event_songchange);
+    Spicetify.Player.addEventListener('onplaypause', event_playpause);
+    Spicetify.Player.addEventListener('onprogress', event_progress);
     
-    // Custom commands 'cause why not
-    socket?.on('command', (data: { action: string }) => {
-        switch(data.action) {
-            case 'next': Spicetify.Player.next(); break;
-            case 'prev': Spicetify.Player.back(); break;
-            case 'pause': Spicetify.Player.pause(); break;
-            case 'play': Spicetify.Player.play(); break;
-        }
-    });
+    // Refresh socket
+    refresh_socket();
+
+    // Setup callbacks
+    socket?.on('playback', async (data) => await playback(data));
+    socket?.on('current_track', async (callback) => callback(await current_track()));
+    socket?.on('current_artist', async (callback) => callback(await current_artist()));
+    socket?.on('next_track', async (callback) => callback(await next_track()));
+    socket?.on('next_tracks', async (data, callback) => callback(await next_tracks(data)));
 }
 
 export default main;
