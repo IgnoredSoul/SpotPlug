@@ -32,6 +32,14 @@ SpotPlug is an extension for Spicetify that creates a socket connection between 
 
 - `seek`: Seeks to a part of a song in milliseconds
 
+- `current_track`: Returns the current track
+
+- `current_artist`: Returns the current artists' profile
+
+- `next_track`: Returns the next track
+
+- `next_tracks`: Returns N tracks that play next
+
 ## Configuration
 
 You can find the settings directly within Spotify's Preferences menu:
