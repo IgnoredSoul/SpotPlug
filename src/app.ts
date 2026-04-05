@@ -2,14 +2,19 @@ import { io, Socket } from "socket.io-client";
 import { SettingsSection } from "spcr-settings";
 
 const settings: SettingsSection = new SettingsSection('SpotPlug Settings', 'spotplug-settings')
-const get_progress_throttle = () => Number(settings.getFieldValue('progress_throttle'));
 settings.addInput('socket_port', 'Socket Port', '8000', refresh_socket)
-settings.addInput('progress_throttle', 'How frequent the progress data is sent (ms)', '800');
 settings.addToggle('autoconnect_socket', 'Enable the socket client', true, refresh_socket)
+settings.addToggle('force_progress', 'forces the progress update', false, forceProgress);
+settings.addInput('progress_throttle', 'How frequent the progress data is sent (ms)', '800', () => progressThrottle = Number(settings.getFieldValue('progress_throttle')));
 settings.pushSettings();
 
 // Define socket
 let socket: Socket | null = null;
+
+// Define force_progress interval
+let fpWorker: Worker | null = null;
+
+let progressThrottle: number = 800;
 
 // Refresh the socket state, either turning it on or off
 async function refresh_socket() {
@@ -38,7 +43,7 @@ async function connect() {
     Spicetify.showNotification('Connected to server');
     
     // Send "I'm spotify" data to the server
-    socket!.emit('p2s_connect', {IamHere:true})
+    socket!.emit('p2s_connect')
     
 }
 
@@ -89,11 +94,11 @@ let lastProgressThrottle = 0;
 async function event_progress(event: any) {
 
     // A few checks
-    if(!socket?.connected || !event?.data) return;
+    if(!socket?.connected || !event?.data || settings.getFieldValue('force_progress')) return;
 
     // Progress throttle | So it doesn't constantly send progress for every little fucking number
     const now = Date.now();
-    if(now - lastProgressThrottle < get_progress_throttle()) return;
+    if(now - lastProgressThrottle < progressThrottle) return;
     lastProgressThrottle = now;
 
     socket?.emit('p2s_progress', {
@@ -101,6 +106,57 @@ async function event_progress(event: any) {
         percentage: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2)) // Cuts the percentage down to XXX.YY%
     });
 
+}
+
+// After a while, the progress event stops sending every second and only updates like 4 times through out the track, unless it's being watched.
+async function forceProgress() {
+
+    const isEnabled = settings.getFieldValue('force_progress');
+    if(isEnabled && !fpWorker) {
+        const worker = `
+            let interval = null;
+            onmessage = (e) => {
+                if(e.data === 'start') {
+                    if (interval) clearInterval(interval); // Prevent duplicate intervals
+                    interval = setInterval(() => {
+                        postMessage('tick');
+                    }, 250);
+                } else if (e.data === 'stop') {
+                    clearInterval(interval);
+                    interval = null;
+                }
+            };
+        `;
+
+        const blob = new Blob([worker], {type: 'text/javascript'});
+        fpWorker = new Worker(URL.createObjectURL(blob));
+
+        fpWorker.onerror = (err) => {
+            error("Worker Error:", err.message, "at", err.lineno);
+        };
+
+        fpWorker.onmessage = () => {
+            if (!Spicetify.Player.isPlaying()) return;
+
+            const now = Date.now();
+            if (now - lastProgressThrottle < progressThrottle) return;
+            lastProgressThrottle = now;
+
+            socket?.emit('p2s_progress', {
+                milliseconds: Spicetify.Player.getProgress(),
+                percentage: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2))
+            });
+        }
+
+        fpWorker.postMessage('start');
+        log('Background worker started. Force progress should be active.');
+    } else if(!isEnabled && fpWorker) {
+        fpWorker.postMessage('stop');
+        fpWorker.terminate();
+        fpWorker = null;
+        log('Background worker stopped.');
+    }
+    
 }
 
 //#endregion
@@ -138,6 +194,7 @@ async function current_track() {
 }
 
 // Retrieve the artists profile
+// This for some reason can be a prick. So chuck it in a try catch
 async function current_artist() {
     try {
         const response = await Spicetify.GraphQL.Request(Spicetify.GraphQL.Definitions.queryArtistOverview, { uri: Spicetify.Player.data.item.metadata.artist_uri, locale: "en", includePrerelease: false });
@@ -145,8 +202,9 @@ async function current_artist() {
         if(!Union) throw Error("No Union?");
         return Union;
     } catch (err) {
-        console.error("Failed to get current artists profile:", err);
+        error("Failed to get current artists profile:", err);
     }
+    return null;
 }
 
 // Retrieve the next track
@@ -167,6 +225,9 @@ async function next_tracks(n: number) {
 
 //#endregion
 
+function log(...data: any[]) { console.log('[SPOTPLUG]: ', data) }
+function error(...data: any[]) { console.error('[SPOTPLUG]: ', data); }
+
 async function main() {
 
     // Does thou have a player?
@@ -179,6 +240,9 @@ async function main() {
     
     // Refresh socket
     refresh_socket();
+
+    // Force progress
+    forceProgress();
 
     // Setup callbacks
     socket?.on('playback', async (data) => await playback(data));
