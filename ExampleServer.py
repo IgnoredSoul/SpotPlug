@@ -23,7 +23,7 @@ async def disconnect(sid):
     else:
         print(f"A client has disconnected: {sid}")
 
-@sio.on('p2s_connect')
+@sio.on('p2s-connect')
 async def p2s_connect(sid, data):
     global spotify_sid
 
@@ -48,23 +48,23 @@ async def handle_progress(sid, data):
 
 # Play next song
 async def next():
-    await sio.emit('playback', {'type': 'next'}, room=sid_lock)
+    await sio.emit('s2p-playback', {'type': 'next'}, room=sid_lock)
 
 # Play previous / Start of track
 async def prev():
-    await sio.emit('playback', {'type': 'prev'}, room=sid_lock)
+    await sio.emit('s2p-playback', {'type': 'prev'}, room=sid_lock)
 
 # Play/Pause
 async def toggle():
-    await sio.emit('playback', {'type': 'toggle'}, room=sid_lock)
+    await sio.emit('s2p-playback', {'type': 'toggle'}, room=sid_lock)
 
 # Play a spotify URI
 async def play():
-    await sio.emit('playback', {'type': 'play', 'uri': 'spotify:track:709ZIqPHyFOpx2QdjmeWAM' })
+    await sio.emit('s2p-playback', {'type': 'play', 'uri': 'spotify:track:709ZIqPHyFOpx2QdjmeWAM' })
 
 # Seek current track to 5 seconds in
 async def seek():
-    await sio.emit('playback', {'type': 'seek', 'milli': '5000'})
+    await sio.emit('s2p-playback', {'type': 'seek', 'milli': '5000'})
 
 if __name__ == '__main__':
     print("Socket server starting on http://localhost:8000")
