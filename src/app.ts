@@ -243,10 +243,10 @@ async function main() {
 
     // Setup callbacks
     socket?.on('s2p-playback', async (data) => await playback(data));
-    socket?.on('s2p-current_track', async (callback) => callback(await current_track()));
-    socket?.on('s2p-current_artist', async (callback) => callback(await current_artist()));
-    socket?.on('s2p-next_track', async (callback) => callback(await next_track()));
-    socket?.on('s2p-next_tracks', async (data, callback) => callback(await next_tracks(data)));
+    socket?.on('s2p-current-track', async (callback) => callback(await current_track()));
+    socket?.on('s2p-current-artist', async (callback) => callback(await current_artist()));
+    socket?.on('s2p-next-track', async (callback) => callback(await next_track()));
+    socket?.on('s2p-next-tracks', async (data, callback) => callback(await next_tracks(data)));
 }
 
 export default main;
