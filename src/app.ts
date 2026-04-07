@@ -111,7 +111,7 @@ async function event_progress(event: any) {
 // After a while, the progress event stops sending every second and only updates like 4 times through out the track, unless it's being watched.
 async function forceProgress() {
 
-    const isEnabled = settings.getFieldValue('force-progress');
+    const isEnabled = settings.getFieldValue('force_progress');
     if(isEnabled && !fpWorker) {
         const worker = `
             let interval = null;
