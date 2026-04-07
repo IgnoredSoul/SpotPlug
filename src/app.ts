@@ -43,7 +43,7 @@ async function connect() {
     Spicetify.showNotification('Connected to server');
     
     // Send "I'm spotify" data to the server
-    socket!.emit('p2s_connect')
+    socket!.emit('p2s-connect')
     
 }
 
@@ -67,7 +67,7 @@ async function event_songchange(event: any) {
     const artId = (track.metadata.image_xlarge_url || track.metadata.image_url || "").split(':')[2] ?? "";
     
     // Emit data to the server
-    socket?.emit('p2s_songchange', {
+    socket?.emit('p2s-songchange', {
         title: track.name,
         artists: Array.from(track.artists.map((a: any) => a.name)),
         album: track.metadata.album_title,
@@ -85,7 +85,7 @@ async function event_playpause(event: any) {
     if(!socket?.connected || !event?.data) return;
 
     // Emit data to the server
-    socket?.emit('p2s_playpause', { isPaused: event.data.isPaused });
+    socket?.emit('p2s-playpause', { isPaused: event.data.isPaused });
 
 }
 
@@ -101,7 +101,7 @@ async function event_progress(event: any) {
     if(now - lastProgressThrottle < progressThrottle) return;
     lastProgressThrottle = now;
 
-    socket?.emit('p2s_progress', {
+    socket?.emit('p2s-progress', {
         milliseconds: Spicetify.Player.getProgress(),
         percentage: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2)) // Cuts the percentage down to XXX.YY%
     });
@@ -111,7 +111,7 @@ async function event_progress(event: any) {
 // After a while, the progress event stops sending every second and only updates like 4 times through out the track, unless it's being watched.
 async function forceProgress() {
 
-    const isEnabled = settings.getFieldValue('force_progress');
+    const isEnabled = settings.getFieldValue('force-progress');
     if(isEnabled && !fpWorker) {
         const worker = `
             let interval = null;
@@ -142,7 +142,7 @@ async function forceProgress() {
             if (now - lastProgressThrottle < progressThrottle) return;
             lastProgressThrottle = now;
 
-            socket?.emit('p2s_progress', {
+            socket?.emit('p2s-progress', {
                 milliseconds: Spicetify.Player.getProgress(),
                 percentage: parseFloat((Spicetify.Player.getProgressPercent() * 100).toFixed(2))
             });
@@ -209,10 +209,7 @@ async function current_artist() {
 
 // Retrieve the next track
 async function next_track() {
-    if(Spicetify.Player.data.nextItems) {
-        return Spicetify.Player.data.nextItems[0] ?? null;
-    }
-    return null;
+    return next_tracks(1) ?? null;
 }
 
 // Retrieve (N) next tracks
@@ -245,11 +242,11 @@ async function main() {
     forceProgress();
 
     // Setup callbacks
-    socket?.on('playback', async (data) => await playback(data));
-    socket?.on('current_track', async (callback) => callback(await current_track()));
-    socket?.on('current_artist', async (callback) => callback(await current_artist()));
-    socket?.on('next_track', async (callback) => callback(await next_track()));
-    socket?.on('next_tracks', async (data, callback) => callback(await next_tracks(data)));
+    socket?.on('s2p-playback', async (data) => await playback(data));
+    socket?.on('s2p-current_track', async (callback) => callback(await current_track()));
+    socket?.on('s2p-current_artist', async (callback) => callback(await current_artist()));
+    socket?.on('s2p-next_track', async (callback) => callback(await next_track()));
+    socket?.on('s2p-next_tracks', async (data, callback) => callback(await next_tracks(data)));
 }
 
 export default main;
