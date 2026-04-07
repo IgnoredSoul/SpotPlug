@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "spicetify-creator",
-    "test": "spicetify-creator && spicetify apply",
+    "test": "spicetify-creator && spicetify-creator --out=dist --minify && spicetify apply",
     "build-local": "spicetify-creator --out=dist --minify",
     "watch": "spicetify-creator --watch"
   },
