@@ -20,21 +20,23 @@ let progressThrottle: number = 800;
 async function refresh_socket() {
     const isEnabled = Boolean(settings.getFieldValue('autoconnect_socket'));
     const port = Number(settings.getFieldValue('socket_port')) || 8000;
-
+    
     // Disconnect existing if it exists
     if (socket) {
         socket.removeAllListeners();
         socket.disconnect();
     }
+    
+    if(!isEnabled) { socket = null; return; }
 
-    // If the socket is now enabled, connect
-    if (isEnabled) {
-        socket = io(`http://localhost:${port}`, { autoConnect: true, reconnection: true });
-        socket.on('connect', connect);
-        socket.on('disconnect', disconnect);
-    } else { // Else set it to null
-        socket = null;
-    }
+    socket = io(`http://localhost:${port}`, { autoConnect: true, reconnection: true });
+    socket.on('connect', connect);
+    socket.on('disconnect', disconnect);
+    socket.on('s2p-playback', async (data) => await playback(data));
+    socket.on('s2p-current-track', async (callback) => callback(await current_track()));
+    socket.on('s2p-current-artist', async (callback) => callback(await current_artist()));
+    socket.on('s2p-next-track', async (callback) => callback(await next_track()));
+    socket.on('s2p-next-tracks', async (data, callback) => callback(await next_tracks(data)));
 }
 
 async function connect() {
@@ -42,16 +44,14 @@ async function connect() {
     // Show notification on spotify client
     Spicetify.showNotification('Connected to server');
     
-    // Send "I'm spotify" data to the server
+    // Basically tells the server "I'm spotify"
     socket!.emit('p2s-connect')
-    
 }
 
 async function disconnect() {
     
     // Show notification on spotify client
     Spicetify.showNotification('Disconnected from server');
-    
 }
 
 //#region Events that are automatically sent to the server
@@ -59,7 +59,7 @@ async function disconnect() {
 // Send the current song
 async function event_songchange(event: any) {
     
-    // A few checks
+    // Is the socket not connect, is the event data incorrect?
     if(!socket?.connected || !event?.data?.item) return;
     
     // Some constants
@@ -81,7 +81,7 @@ async function event_songchange(event: any) {
 // Send the current pause state of the player
 async function event_playpause(event: any) {
 
-    // A few checks
+    // Is the socket not connect, is the event data incorrect?
     if(!socket?.connected || !event?.data) return;
 
     // Emit data to the server
@@ -93,7 +93,7 @@ async function event_playpause(event: any) {
 let lastProgressThrottle = 0;
 async function event_progress(event: any) {
 
-    // A few checks
+    // Is the socket not connect, is force progress on, is the event data incorrect?
     if(!socket?.connected || !event?.data || settings.getFieldValue('force_progress')) return;
 
     // Progress throttle | So it doesn't constantly send progress for every little fucking number
@@ -156,7 +156,6 @@ async function forceProgress() {
         fpWorker = null;
         log('Background worker stopped.');
     }
-    
 }
 
 //#endregion
@@ -240,13 +239,6 @@ async function main() {
 
     // Force progress
     forceProgress();
-
-    // Setup callbacks
-    socket?.on('s2p-playback', async (data) => await playback(data));
-    socket?.on('s2p-current-track', async (callback) => callback(await current_track()));
-    socket?.on('s2p-current-artist', async (callback) => callback(await current_artist()));
-    socket?.on('s2p-next-track', async (callback) => callback(await next_track()));
-    socket?.on('s2p-next-tracks', async (data, callback) => callback(await next_tracks(data)));
 }
 
 export default main;

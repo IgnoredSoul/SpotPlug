@@ -5,7 +5,7 @@
   "scripts": {
     "build": "spicetify-creator",
     "test": "spicetify-creator && spicetify-creator --out=dist --minify && spicetify apply",
-    "build-local": "spicetify-creator --out=dist --minify",
+    "build-local": "spicetify-creator --out=marketplace --minify",
     "watch": "spicetify-creator --watch"
   },
   "license": "MIT",
